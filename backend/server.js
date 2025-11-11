@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 8080;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'dist/event-search-app/browser')));
+app.use(express.static(path.join(__dirname, '../frontend/dist/frontend')));
 
 // MongoDB Configuration
 const MONGODB_URI = process.env.MONGODB_URI || 'your-mongodb-atlas-connection-string';
