@@ -2,10 +2,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment'; // ← ADD THIS IMPORT
+import { environment } from '../../environments/environment';
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class ApiService {
   private apiUrl = '/api';
@@ -18,15 +18,15 @@ export class ApiService {
     return this.http.get(`${this.apiUrl}/suggest`, { params });
   }
 
-  // Search events
+  // Corrected search endpoint (no /events prefix)
   searchEvents(searchParams: any): Observable<any> {
     let params = new HttpParams();
-    Object.keys(searchParams).forEach((key) => {
+    Object.keys(searchParams).forEach(key => {
       if (searchParams[key]) {
         params = params.set(key, searchParams[key]);
       }
     });
-    return this.http.get(`${this.apiUrl}/events/search`, { params });
+    return this.http.get(`${this.apiUrl}/search`, { params });
   }
 
   // Get event details
@@ -34,23 +34,24 @@ export class ApiService {
     return this.http.get(`${this.apiUrl}/events/${eventId}`);
   }
 
-  // Search Spotify artist
+  // Spotify Artist search
   searchSpotifyArtist(artistName: string): Observable<any> {
     const params = new HttpParams().set('name', artistName);
     return this.http.get(`${this.apiUrl}/spotify/artist`, { params });
   }
 
-  // Get Spotify artist albums
+  // Spotify Artist albums
   getArtistAlbums(artistId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/spotify/artist/${artistId}/albums`);
   }
 
-  // Get user location using ipinfo.io - NOW USES ENVIRONMENT VARIABLE
+  // IPinfo with valid token from environment
   getUserLocation(): Observable<any> {
-    return this.http.get(`https://ipinfo.io/json?token=${environment.ipinfoToken}`);
+    const token = environment.ipinfoToken;
+    return this.http.get(`https://ipinfo.io/json?token=${token}`);
   }
 
-  // Geocode address using Google Maps API - NOW USES ENVIRONMENT VARIABLE
+  // Geocode with Google Maps key from environment
   geocodeAddress(address: string): Observable<any> {
     const params = new HttpParams()
       .set('address', address)

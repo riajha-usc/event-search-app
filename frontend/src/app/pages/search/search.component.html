@@ -97,16 +97,28 @@
         <!-- Location Field -->
         <div>
           <label class="block text-sm font-semibold mb-2 text-gray-700">
-            Location <span class="text-red-500">*</span>
+            Location <span class="text-red-500" *ngIf="!searchForm.get('autoDetect')?.value">*</span>
           </label>
-          <input
-            type="text"
-            formControlName="location"
-            class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            [class.border-red-500]="searchForm.get('location')?.invalid && searchForm.get('location')?.touched && !searchForm.get('autoDetect')?.value"
-            [class.border-gray-300]="!searchForm.get('location')?.invalid || !searchForm.get('location')?.touched || searchForm.get('autoDetect')?.value"
-            placeholder="Enter location"
-          />
+          <div class="relative">
+            <input
+              type="text"
+              formControlName="location"
+              class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              [class.bg-gray-100]="searchForm.get('autoDetect')?.value"
+              [class.cursor-not-allowed]="searchForm.get('autoDetect')?.value"
+              [class.border-red-500]="searchForm.get('location')?.invalid && searchForm.get('location')?.touched && !searchForm.get('autoDetect')?.value"
+              [class.border-gray-300]="!searchForm.get('location')?.invalid || !searchForm.get('location')?.touched || searchForm.get('autoDetect')?.value"
+              [placeholder]="searchForm.get('autoDetect')?.value ? 'Detecting location...' : 'Enter city, state, or address'"
+            />
+            
+            <!-- Location detected indicator -->
+            <div *ngIf="searchForm.get('autoDetect')?.value && searchForm.get('location')?.value" 
+                 class="absolute right-3 top-1/2 -translate-y-1/2">
+              <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
           <div *ngIf="searchForm.get('location')?.invalid && searchForm.get('location')?.touched && !searchForm.get('autoDetect')?.value" class="text-red-500 text-sm mt-1">
             Please enter a location
           </div>
@@ -124,6 +136,14 @@
           />
           <span class="text-sm font-medium text-gray-700">Auto-detect your location</span>
         </label>
+        <p class="text-xs text-gray-500 mt-1 ml-8">
+          <ng-container *ngIf="!searchForm.get('autoDetect')?.value">
+            Uncheck to enter location manually (e.g., "Los Angeles", "California", "90001")
+          </ng-container>
+          <ng-container *ngIf="searchForm.get('autoDetect')?.value">
+            Using your current location based on IP address
+          </ng-container>
+        </p>
       </div>
 
       <!-- Action Buttons -->
