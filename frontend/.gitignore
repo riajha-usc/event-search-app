@@ -1,0 +1,39 @@
+# Compiled output
+/dist
+/tmp
+/out-tsc
+/bazel-out
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
+
+# Miscellaneous
+/.angular/cache
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+__screenshots__/
+
+# System files
+.DS_Store
+Thumbs.db
+
+.claude
+.vscode
+.editorconfig
+.env
+package-lock.json
+tsconfig.*
+.angular
+
+# Add to frontend/.gitignore
+/src/environments/environment.ts
+/src/environments/environment.prod.ts
+
+# Keep the template
+!/src/environments/environment.template.ts
