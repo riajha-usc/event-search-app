@@ -3,3 +3,8 @@
 .env
 package-lock.json
 tsconfig.*
+app.yaml
+node_modules/
+dist/
+build/
+.gcloudignore

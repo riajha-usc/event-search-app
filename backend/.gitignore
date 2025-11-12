@@ -5,3 +5,4 @@ app.yaml
 .env
 .DS_Store
 .vscode
+.gcloudignore
