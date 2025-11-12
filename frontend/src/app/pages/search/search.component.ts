@@ -1,3 +1,4 @@
+// src/app/pages/search/search.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -5,7 +6,7 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.services';
 import { FavoritesService } from '../../services/favorites.services';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
-import { Subject, of, firstValueFrom } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import Geohash from 'latlon-geohash';
 
 interface Event {
@@ -23,16 +24,7 @@ interface Event {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './search.component.html',
-  styles: [
-    `
-      .line-clamp-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-    `,
-  ],
+  styleUrls: [],
 })
 export class SearchComponent implements OnInit {
   searchForm!: FormGroup;
@@ -43,9 +35,10 @@ export class SearchComponent implements OnInit {
   isSearching = false;
   noResults = false;
   searchSubject = new Subject<string>();
-  private isDetectingLocation = false; // FIX 1: Prevent multiple location calls
-  detectedLocationName = ''; // Store friendly location name
-  detectedCoordinates = ''; // Store lat,lng coordinates separately
+  public isDetectingLocation = false;
+  // Store detected coordinates and friendly name (not shown directly in the input value)
+  detectedCoordinates: string = '';
+  detectedLocationName: string = '';
 
   categories = [
     { value: 'all', label: 'All', id: '' },
@@ -67,15 +60,6 @@ export class SearchComponent implements OnInit {
     this.initializeForm();
     this.setupAutocomplete();
     this.restoreSearchState();
-
-    // Restore scroll position after view init
-    setTimeout(() => {
-      const savedScrollPosition = sessionStorage.getItem('scrollPosition');
-      if (savedScrollPosition) {
-        window.scrollTo(0, parseInt(savedScrollPosition));
-        sessionStorage.removeItem('scrollPosition');
-      }
-    }, 100);
   }
 
   initializeForm(): void {
@@ -87,30 +71,20 @@ export class SearchComponent implements OnInit {
       autoDetect: [false],
     });
 
-    // FIX 1: Prevent repeated API calls
+    // Listen to autoDetect changes
     this.searchForm.get('autoDetect')?.valueChanges.subscribe((checked) => {
       if (checked) {
-        this.searchForm.get('location')?.disable();
-        this.searchForm.get('location')?.clearValidators();
-        this.searchForm.get('location')?.updateValueAndValidity();
-
-        // Only detect location if not already detecting and coordinates are not already stored
-        if (!this.isDetectingLocation && !this.detectedCoordinates) {
+        // Disable the location control without emitting another value change
+        this.searchForm.get('location')?.disable({ emitEvent: false });
+        // Clear any previous value (don't emit to avoid loops)
+        this.searchForm.get('location')?.setValue('', { emitEvent: false });
+        // Kick off IP detection only if not already running
+        if (!this.isDetectingLocation) {
           this.detectLocation();
-        } else if (this.detectedCoordinates) {
-          // If we already have coordinates (e.g., from restore), just update the display
-          this.searchForm.patchValue(
-            {
-              location: this.detectedLocationName,
-            },
-            { emitEvent: false }
-          );
         }
       } else {
-        this.searchForm.get('location')?.enable();
-        this.searchForm.get('location')?.setValidators([Validators.required]);
-        this.searchForm.get('location')?.updateValueAndValidity();
-        // Don't clear coordinates immediately - user might toggle back
+        // Re-enable location control without emitting value change
+        this.searchForm.get('location')?.enable({ emitEvent: false });
       }
     });
   }
@@ -158,83 +132,48 @@ export class SearchComponent implements OnInit {
     this.showSuggestions = false;
   }
 
-  hideAutocomplete(): void {
-    setTimeout(() => {
-      this.showSuggestions = false;
-    }, 200);
-  }
-
   detectLocation(): void {
-    // FIX 1: Prevent concurrent location detection
-    if (this.isDetectingLocation) {
-      return;
-    }
-
+    if (this.isDetectingLocation) return;
     this.isDetectingLocation = true;
 
     this.apiService.getUserLocation().subscribe({
       next: (data) => {
-        // Store lat,lng internally but don't show it to user
-        this.detectedCoordinates = data.loc; // This is "lat,lng" format
+        const loc = data.loc; // "lat,lng"
+        // Save coordinates internally but do NOT write the raw coords into the visible input
+        if (loc) {
+          this.detectedCoordinates = loc;
+        }
+
+        // Build a friendly display name (city, region, country) if available
         const city = data.city || '';
         const region = data.region || '';
         const country = data.country || '';
+        this.detectedLocationName = [city, region, country].filter(Boolean).join(', ');
 
-        // Display friendly location name to user
-        this.detectedLocationName = [city, region, country].filter((x) => x).join(', ');
+        // Patch the visible location form control with the friendly name (keep control disabled)
+        if (this.detectedLocationName) {
+          this.searchForm.patchValue({ location: this.detectedLocationName }, { emitEvent: false });
+        }
 
-        // Store the friendly name in the form field for display
-        this.searchForm.patchValue(
-          {
-            location: this.detectedLocationName,
-          },
-          { emitEvent: false }
-        );
-
-        console.log(`Location detected: ${this.detectedLocationName}`);
         this.isDetectingLocation = false;
       },
       error: (error) => {
         console.error('Error detecting location:', error);
         alert('Failed to detect location. Please enter manually.');
+        // Turn off autoDetect without emitting (prevents loop)
         this.searchForm.patchValue({ autoDetect: false }, { emitEvent: false });
-        this.searchForm.get('location')?.enable();
-        this.searchForm.get('location')?.setValidators([Validators.required]);
-        this.searchForm.get('location')?.updateValueAndValidity();
+        this.searchForm.get('location')?.enable({ emitEvent: false });
         this.isDetectingLocation = false;
-        this.detectedCoordinates = '';
-        this.detectedLocationName = '';
       },
     });
   }
 
   async onSubmit(): Promise<void> {
-    // FIX 2: Better form validation
-    if (!this.searchForm.get('autoDetect')?.value) {
-      if (
-        this.searchForm.get('keyword')?.invalid ||
-        this.searchForm.get('location')?.invalid ||
-        this.searchForm.get('distance')?.invalid
-      ) {
-        Object.keys(this.searchForm.controls).forEach((key) => {
-          this.searchForm.get(key)?.markAsTouched();
-        });
-        return;
-      }
-    } else {
-      if (
-        this.searchForm.get('keyword')?.invalid ||
-        this.searchForm.get('distance')?.invalid ||
-        !this.detectedCoordinates
-      ) {
-        Object.keys(this.searchForm.controls).forEach((key) => {
-          this.searchForm.get(key)?.markAsTouched();
-        });
-        if (!this.detectedCoordinates) {
-          alert('Please wait for location detection to complete.');
-        }
-        return;
-      }
+    if (this.searchForm.invalid) {
+      Object.keys(this.searchForm.controls).forEach((key) => {
+        this.searchForm.get(key)?.markAsTouched();
+      });
+      return;
     }
 
     this.isSearching = true;
@@ -243,77 +182,94 @@ export class SearchComponent implements OnInit {
     const formValue = this.searchForm.getRawValue();
     let geoPoint = '';
 
-    try {
-      if (formValue.autoDetect && this.detectedCoordinates) {
-        // ✅ Use stored coordinates from auto-detect
-        const [lat, lng] = this.detectedCoordinates.split(',');
-        geoPoint = Geohash.encode(parseFloat(lat), parseFloat(lng), 7);
-        console.log('Using auto-detected coordinates:', this.detectedCoordinates);
-      } else {
-        // ✅ Manual location: Geocode
-        const geocode = await firstValueFrom(this.apiService.geocodeAddress(formValue.location));
-
-        console.log('Geocode response:', geocode);
-
-        if (geocode && geocode.status === 'OK' && geocode.results?.length > 0) {
-          const location = geocode.results[0].geometry.location;
-          geoPoint = Geohash.encode(location.lat, location.lng, 7);
-          console.log('Using geocoded coordinates:', location.lat, location.lng);
-        } else {
-          const errorMsg =
-            geocode?.status === 'ZERO_RESULTS'
-              ? 'Location not found. Please try a different address or city name.'
-              : `Geocoding error: ${
-                  geocode?.status || 'Unknown error'
-                }. Please check your Google Maps API key.`;
-          alert(errorMsg);
-          this.isSearching = false;
-          return;
-        }
+    // Get coordinates
+    if (formValue.autoDetect) {
+      // Use internally stored detected coordinates (we don't write raw coords into the form input)
+      if (!this.detectedCoordinates) {
+        alert('Please wait for location detection to complete.');
+        this.isSearching = false;
+        return;
       }
+      const [lat, lng] = this.detectedCoordinates.split(',');
+      geoPoint = Geohash.encode(parseFloat(lat), parseFloat(lng), 7);
+    } else {
+      try {
+        const geocode = await this.apiService.geocodeAddress(formValue.location).toPromise();
+        if (geocode.results && geocode.results.length > 0) {
+          const result = geocode.results[0];
+          const location = result.geometry.location;
 
-      const category = this.categories.find((cat) => cat.value === formValue.category);
-      const segmentId = category?.id || '';
+          // If user entered a large administrative area (e.g., a US state like "California")
+          // Google Geocoding returns a single lat/lng usually near the geographic center which
+          // may be far from populated areas. To compensate, increase the search radius when
+          // the result type indicates a broad area.
+          const resultTypes: string[] = result.types || [];
+          // Default radius is the value from the form
+          let effectiveRadius = Number(formValue.distance);
 
-      const searchParams = {
-        keyword: formValue.keyword,
-        segmentId,
-        radius: formValue.distance,
-        unit: 'miles',
-        geoPoint,
-      };
-
-      console.log('Search params:', searchParams);
-
-      this.apiService.searchEvents(searchParams).subscribe({
-        next: (data) => {
-          this.isSearching = false;
-          console.log('Search API Response:', data);
-
-          if (data._embedded?.events?.length > 0) {
-            this.events = this.parseEvents(data._embedded.events);
-            this.noResults = false;
-            this.saveSearchState();
-            console.log('Parsed events:', this.events);
-          } else {
-            this.events = [];
-            this.noResults = true;
-            console.log('No events found in response');
+          if (resultTypes.includes('administrative_area_level_1')) {
+            // State level -> use a large radius (200 miles) to cover the state
+            effectiveRadius = Math.max(effectiveRadius, 200);
+          } else if (resultTypes.includes('country')) {
+            // Country -> very large radius
+            effectiveRadius = Math.max(effectiveRadius, 800);
+          } else if (resultTypes.includes('administrative_area_level_2')) {
+            // County level -> medium radius
+            effectiveRadius = Math.max(effectiveRadius, 100);
           }
-        },
-        error: (error) => {
-          console.error('Search error:', error);
-          this.isSearching = false;
+
+          // store adjusted radius back to formValue so later searchParams uses it
+          formValue.distance = effectiveRadius;
+
+          geoPoint = Geohash.encode(Number(location.lat), Number(location.lng), 7);
+          console.log(
+            'Geocoded location types:',
+            resultTypes,
+            'using radius:',
+            effectiveRadius,
+            'geoPoint:',
+            geoPoint
+          );
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        this.isSearching = false;
+        return;
+      }
+    }
+
+    // Get segment ID
+    const category = this.categories.find((cat) => cat.value === formValue.category);
+    const segmentId = category?.id || '';
+
+    // Search events
+    const searchParams = {
+      keyword: formValue.keyword,
+      segmentId: segmentId,
+      radius: formValue.distance,
+      unit: 'miles',
+      geoPoint: geoPoint,
+    };
+
+    this.apiService.searchEvents(searchParams).subscribe({
+      next: (data) => {
+        this.isSearching = false;
+        if (data._embedded && data._embedded.events) {
+          this.events = this.parseEvents(data._embedded.events);
+          this.noResults = this.events.length === 0;
+          this.saveSearchState();
+        } else {
           this.events = [];
           this.noResults = true;
-        },
-      });
-    } catch (error: any) {
-      console.error('Geocoding or search error:', error);
-      this.isSearching = false;
-      this.events = [];
-      this.noResults = true;
-    }
+        }
+      },
+      error: (error) => {
+        console.error('Search error:', error);
+        this.isSearching = false;
+        this.events = [];
+        this.noResults = true;
+      },
+    });
   }
 
   parseEvents(events: any[]): Event[] {
@@ -328,16 +284,13 @@ export class SearchComponent implements OnInit {
         image: event.images?.[0]?.url || '',
       }))
       .sort((a, b) => {
-        // Sort by ascending order of Local Date/Time as per assignment requirement
-        const dateTimeA = a.date
-          ? new Date(a.date + ' ' + (a.time || '00:00:00'))
-          : new Date('9999-12-31');
-        const dateTimeB = b.date
-          ? new Date(b.date + ' ' + (b.time || '00:00:00'))
-          : new Date('9999-12-31');
-        return dateTimeA.getTime() - dateTimeB.getTime();
+        const dateA = new Date(a.date + ' ' + a.time);
+        const dateB = new Date(b.date + ' ' + b.time);
+        return dateA.getTime() - dateB.getTime();
       });
   }
+
+  // Continued in template...
 
   clearForm(): void {
     this.searchForm.reset({
@@ -349,17 +302,10 @@ export class SearchComponent implements OnInit {
     });
     this.events = [];
     this.noResults = false;
-    this.suggestions = [];
-    this.showSuggestions = false;
-    this.detectedCoordinates = ''; // Clear stored coordinates
-    this.detectedLocationName = ''; // Clear stored location name
     this.clearSearchState();
-    window.scrollTo(0, 0); // Reset scroll position on clear
   }
 
   viewEventDetail(eventId: string): void {
-    // Save scroll position before navigating
-    sessionStorage.setItem('scrollPosition', window.scrollY.toString());
     this.router.navigate(['/event', eventId]);
   }
 
@@ -376,16 +322,7 @@ export class SearchComponent implements OnInit {
       image: event.image,
     };
 
-    // FIX 3: Better feedback for favorites
-    this.favoritesService.toggleFavorite(favoriteEvent).subscribe({
-      next: () => {
-        console.log('Favorite toggled successfully');
-      },
-      error: (error) => {
-        console.error('Error toggling favorite:', error);
-        alert('Failed to update favorites. Please try again.');
-      },
-    });
+    this.favoritesService.toggleFavorite(favoriteEvent).subscribe();
   }
 
   isFavorite(eventId: string): boolean {
@@ -393,12 +330,7 @@ export class SearchComponent implements OnInit {
   }
 
   saveSearchState(): void {
-    const stateToSave = {
-      ...this.searchForm.getRawValue(),
-      detectedCoordinates: this.detectedCoordinates,
-      detectedLocationName: this.detectedLocationName,
-    };
-    sessionStorage.setItem('searchForm', JSON.stringify(stateToSave));
+    sessionStorage.setItem('searchForm', JSON.stringify(this.searchForm.getRawValue()));
     sessionStorage.setItem('searchResults', JSON.stringify(this.events));
   }
 
@@ -407,16 +339,7 @@ export class SearchComponent implements OnInit {
     const savedResults = sessionStorage.getItem('searchResults');
 
     if (savedForm) {
-      const formData = JSON.parse(savedForm);
-      // Restore the detected coordinates and location name
-      this.detectedCoordinates = formData.detectedCoordinates || '';
-      this.detectedLocationName = formData.detectedLocationName || '';
-
-      // Remove them from formData before patching to avoid undefined properties
-      delete formData.detectedCoordinates;
-      delete formData.detectedLocationName;
-
-      this.searchForm.patchValue(formData, { emitEvent: false });
+      this.searchForm.patchValue(JSON.parse(savedForm));
     }
     if (savedResults) {
       this.events = JSON.parse(savedResults);
@@ -428,14 +351,18 @@ export class SearchComponent implements OnInit {
     sessionStorage.removeItem('searchResults');
   }
 
+  // Hide autocomplete dropdown with small delay to allow click handlers to run
+  hideAutocomplete(): void {
+    setTimeout(() => {
+      this.showSuggestions = false;
+    }, 200);
+  }
+
+  // Format date/time for display
   formatDate(date: string, time: string): string {
     if (!date) return 'N/A';
     const d = new Date(date);
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    };
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
     let formatted = d.toLocaleDateString('en-US', options);
     if (time) {
       formatted += ` ${time}`;

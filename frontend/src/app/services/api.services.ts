@@ -26,7 +26,7 @@ export class ApiService {
         params = params.set(key, searchParams[key]);
       }
     });
-    return this.http.get(`${this.apiUrl}/search`, { params });
+    return this.http.get(`${this.apiUrl}/events/search`, { params });
   }
 
   // Get event details
