@@ -2,6 +2,16 @@
 
 This repository contains a full-stack Event Search application built with Angular (frontend) and Node.js/Express (backend). It proxies Ticketmaster API requests on the backend (so the API key is not exposed), uses ipinfo and Google Geocoding on the frontend, and stores favorites in MongoDB Atlas.
 
+---
+
+## Deployment
+
+The application is deployed on **Google App Engine** and can be accessed at:
+
+[https://search-event-svc-98723.uc.r.appspot.com/](https://search-event-svc-98723.uc.r.appspot.com/)
+
+---
+
 Quick summary of what is already implemented:
 
 - Backend (`/backend/server.js`) provides endpoints:
