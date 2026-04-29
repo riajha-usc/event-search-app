@@ -100,5 +100,3 @@ If you'd like, I can now:
 - Run the app locally and perform a sample search to verify end-to-end functionality, or
 - Add the README details into a deploy script for Cloud Run, or
 - Implement any missing UI polish or specific behaviors you want improved.
-
-Tell me which of the above you'd like me to do next.
