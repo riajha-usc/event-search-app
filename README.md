@@ -87,16 +87,3 @@ cp -R dist/frontend/* ../backend/dist/frontend/browser/
 cd ../backend
 npm start
 ```
-
-## Notes and next steps
-
-- The project already includes backend and frontend logic for the assignment requirements. I created `/backend/.env.example` and this README to help run it locally.
-- Next I can:
-  - Add CI-friendly scripts, automated tests for key endpoints, and small validation checks.
-  - Help you deploy to Google Cloud Run or App Engine and set production environment variables.
-
-If you'd like, I can now:
-
-- Run the app locally and perform a sample search to verify end-to-end functionality, or
-- Add the README details into a deploy script for Cloud Run, or
-- Implement any missing UI polish or specific behaviors you want improved.
