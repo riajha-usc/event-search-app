@@ -4,14 +4,6 @@ This repository contains a full-stack Event Search application built with Angula
 
 ---
 
-## Deployment
-
-The application is deployed on **Google App Engine** and can be accessed at:
-
-[https://search-event-svc-98723.uc.r.appspot.com/](https://search-event-svc-98723.uc.r.appspot.com/)
-
----
-
 Quick summary of what is already implemented:
 
 - Backend (`/backend/server.js`) provides endpoints:
